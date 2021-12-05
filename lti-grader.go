@@ -37,12 +37,17 @@ import (
 	"strings"
 )
 
-// This package allows to test the lib, acting as a webserver, and
-// responding to a / endpoint... that should receive POST requests..
+// When run on multi-user linux, this server needs read access to all
+// home directories with the "jupyter-" prefix.
+
+// It also needs access to a TLS cert and key files, which are, as far
+// as I (rhodesd) know are not included as seperate files. They need
+// to be extracted from the acme.json that Traefik uses.
 
 var (
 	secret      = flag.String("secret", "", "Default secret for use during testing")
 	consumer    = flag.String("consumer", "", "Def consumer")
+	//                                 the host should not be hard coded
 	httpAddress = flag.String("https", "www.mathtech.org:5001", "Listen to")
 )
 
@@ -59,12 +64,15 @@ func main() {
 	log.Fatal(http.ListenAndServeTLS("www.mathtech.org:5001", certFile, keyFile, h))
 }
 
+
 func (h LtiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
 	if r.Method != "POST" {
 		http.Error(w, "Only post", 500)
 		return
 	}
 
+	// need another command line arg to specify host and port.
 	p := lti.NewProvider(*secret, "https://www.mathtech.org:5001/")
 	p.ConsumerKey = *consumer
 
@@ -80,6 +88,12 @@ func (h LtiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		username := fmt.Sprintf("%s", p.Get("lis_person_sourcedid"))
 		labname := fmt.Sprintf("%s", p.Get("custom_component_display_name"))
 		notebook, err := GetNotebookData(username, labname)
+
+		// this code is just for sanity checking at the moment
+
+		// fmtstr will be a whole templated response with user
+		// notebook answers.
+		
 		fmtstr := "username: %s, labname: %s <br><br><br> notebook data \\o/ <br> %s </html>"
 		var data = ""
 		if err != nil {
@@ -93,6 +107,8 @@ func (h LtiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Invalid request...")
 	}
 }
+
+// this should be part of a template.
 
 // <problem>
 //     <customresponse cfn="check_function">
@@ -113,6 +129,10 @@ func (h LtiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //             sop="false"/>
 //     </customresponse>
 // </problem>
+
+
+// this doesn't work yet, need to get $ setfacl -R ... working to
+// allow server access to all home directories.
 
 func GetNotebookData(username string, labName string) (string, error) {
 	fmtStr := "/home/jupyter-%s/%s.ipynb"
