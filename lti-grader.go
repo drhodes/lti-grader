@@ -41,8 +41,9 @@ import (
 // home directories with the "jupyter-" prefix.
 
 // It also needs access to a TLS cert and key files, which are, as far
-// as I (rhodesd) know are not included as seperate files. They need
-// to be extracted from the acme.json that Traefik uses.
+// as I (rhodesd) know, these files are not included as seperate files
+// on the jupyterhub install by default, rather they need to be
+// extracted from the acme.json that Traefik uses.
 
 var (
 	secret      = flag.String("secret", "", "Default secret for use during testing")
