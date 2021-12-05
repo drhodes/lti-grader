@@ -10,8 +10,8 @@ called acme.json, which it's Traefik proxy uses.
 
 So, I found a short python script located at the following page:
 
-# https://techoverflow.net/2021/07/18/how-to-export-certificates-from-traefik-certificate-store/
-# no license provided.
+https://techoverflow.net/2021/07/18/how-to-export-certificates-from-traefik-certificate-store/
+(no license provided.)
 
 That script is located in the acme-utils directory. (this may need
 more documentation).
