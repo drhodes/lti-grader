@@ -13,14 +13,17 @@ So, I found a short python script located at the following page:
 # https://techoverflow.net/2021/07/18/how-to-export-certificates-from-traefik-certificate-store/
 # no license provided.
 
-and have included it here
+That script is located in the acme-utils directory. (this may need
+more documentation).
 
-
-
-
-
+The server has two command line args that take the LTI-passport
+secrets. The Makefile assumes that there is a bash file called
+`env-secret.bash` that contains these two lines.
 
 ```bash
-export GRADER_CONSUMER= ...
+export GRADER_CONSUMER= ... 
 export GRADER_SECRET= ...
 ```
+
+Because they are secrets, the file `env-secret.bash` is not included
+in this repository!
