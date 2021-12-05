@@ -8,6 +8,8 @@ GO=/home/derek/bin/go/bin/go
 
 include env-secret.bash
 
+clean:
+	$(GO) clean
 build: 
 	$(GO) build
 
