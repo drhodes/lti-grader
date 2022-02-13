@@ -27,14 +27,12 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/jordic/lti"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
+	"os"
 )
 
 // When run on multi-user linux, this server needs read access to all
@@ -48,33 +46,40 @@ import (
 var (
 	secret      = flag.String("secret", "", "Default secret for use during testing")
 	consumer    = flag.String("consumer", "", "Def consumer")
-	//                                 the host should not be hard coded
-	httpAddress = flag.String("https", "www.mathtech.org:5001", "Listen to")
+	httpAddress = os.Getenv("WEBHOST")
 )
 
 type LtiHandler struct{}
 
 func main() {
 	flag.Parse()
-	log.Printf("Lis %s, waiting POST request.", *httpAddress)
+	log.Printf("Lis %s, waiting POST request.", httpAddress)
+
+	// open connection to sqlite3
+	dbpath := os.Getenv("DB_FILE")
+	err := initGlobalStore(dbpath) //"../answer-server/answers.db")
+	if err != nil {
+		log.Fatal(Err(err, "couldn't not acquire database"))
+	}
+	log.Printf("Loaded db: %s\n", dbpath)
 
 	// https://gist.github.com/denji/12b3a568f092ab951456
 	keyFile := "./key.pem"
 	certFile := "./certificate.pem"
 	h := LtiHandler{}
-	log.Fatal(http.ListenAndServeTLS("www.mathtech.org:5001", certFile, keyFile, h))
+	log.Fatal(http.ListenAndServeTLS(httpAddress, certFile, keyFile, h))
+	//log.Fatal(http.ListenAndServe(httpAddress, h))
 }
 
-
 func (h LtiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println("got something...")
 
 	if r.Method != "POST" {
 		http.Error(w, "Only post", 500)
 		return
 	}
 
-	// need another command line arg to specify host and port.
-	p := lti.NewProvider(*secret, "https://www.mathtech.org:5001/")
+	p := lti.NewProvider(*secret, "https://"+httpAddress+"/")
 	p.ConsumerKey = *consumer
 
 	ok, err := p.IsValid(r)
@@ -84,67 +89,42 @@ func (h LtiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ok {
-		fmt.Fprintf(w, "<html> Request Ok <br><br> ")
-		//data := fmt.Sprintf("User %s", p.Get("user_id"))
-		username := fmt.Sprintf("%s", p.Get("lis_person_sourcedid"))
-		labname := fmt.Sprintf("%s", p.Get("custom_component_display_name"))
-		notebook, err := GetNotebookData(username, labname)
+		fmt.Println(p)
+		userId := p.Get("user_id")
+		labName := p.Get("custom_labname")
+		// custom_staff_answers is a base64 encoded json string.
+		staffAnswers64 := p.Get("custom_staff_answers")
 
-		// this code is just for sanity checking at the moment
-
-		// fmtstr will be a whole templated response with user
-		// notebook answers.
-		
-		fmtstr := "username: %s, labname: %s <br><br><br> notebook data \\o/ <br> %s </html>"
-		var data = ""
-		if err != nil {
-			data = fmt.Sprintf(fmtstr, username, labname, err)
-		} else {
-			data = fmt.Sprintf(fmtstr, username, labname, notebook)
+		if userId == "student" {
+			// handle the case in studio mode
+			fmt.Fprintf(w, "Psst, the grader doesn't work in studio mode, please 'View live version'")
+			return
 		}
-		fmt.Fprint(w, data)
 
+		// for now, shell out to the existing python rendering code
+		// TODO what happens where there is no grade?
+
+		proc, err := NewPyExec(userId, labName, staffAnswers64)
+
+		if err != nil {
+			fmt.Fprintf(w, err.Error())
+			return
+		} else {
+			page, grade, err := proc.BuildPage()
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			} else {
+				err = sendGrade(p, grade)
+				if err != nil {
+					log.Println(Err(err, "Couldn't send grades back to openedx"))
+					return
+				}
+				fmt.Fprintf(w, page)
+				return
+			}
+		}
 	} else {
 		fmt.Fprintf(w, "Invalid request...")
 	}
-}
-
-// this should be part of a template.
-
-// <problem>
-//     <customresponse cfn="check_function">
-//         <script type="loncapa/python">
-//             <![CDATA[ template-file(check_function.py) ]]>
-//         </script>
-//         <p>This is paragraph text displayed before the iframe.</p>
-//         <jsinput
-//             gradefn="JSInputDemo.getGrade"
-//             get_statefn="JSInputDemo.getState"
-//             set_statefn="JSInputDemo.setState"
-//             initial_state='{"selectedChoice": "incorrect1", "availableChoices":
-//             ["incorrect1", "correct", "incorrect2"]}'
-//             width="600"
-//             height="100"
-//             html_file="https://files.edx.org/custom-js-example/jsinput_example.html"
-//             title="Dropdown with Dynamic Text"
-//             sop="false"/>
-//     </customresponse>
-// </problem>
-
-
-// this doesn't work yet, need to get $ setfacl -R ... working to
-// allow server access to all home directories.
-
-func GetNotebookData(username string, labName string) (string, error) {
-	fmtStr := "/home/jupyter-%s/%s.ipynb"
-	filename := fmt.Sprintf(fmtStr, strings.ToLower(username), labName)
-	bs, err := ioutil.ReadFile(filename)
-	notebookData := string(bs)
-
-	if err != nil {
-		return "", errors.New("Couldn't find notebook data" + err.Error())
-	} else {
-		return notebookData, nil
-	}
-
 }

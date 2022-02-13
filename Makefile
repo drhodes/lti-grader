@@ -1,12 +1,12 @@
 SHELL := /bin/bash
 
-HOST=www.mathtech.org
+RHOST=www.mathtech.org
 KEY=./acme-utils/key.pem
 CERT=./acme-utils/certificiate.pem
-FILES=lti-grader Makefile env-secret.bash acme-utils/
+FILES=lti-grader Makefile env-secret.bash acme-utils go.mod go.sum *.py *.go static
 GO=/home/derek/bin/go/bin/go
 
-include env-secret.bash
+#include env-secret.bash
 
 clean:
 	$(GO) clean
@@ -14,17 +14,18 @@ build:
 	$(GO) build
 
 deploy: build
-	rsync -ravP $(FILES) derek@$(HOST):~/lti-grader/
+	rsync -ravP $(FILES) derek@$(RHOST):~/lti-grader/
 
 test-connect:
 	$(shell source env-secret.bash)	
-	curl -X POST https://$(HOST):5001
+	curl -X POST https://$(RHOST):5001
 
 work:
 	emacs *.go problem.xml 
 
-serve: FORCE
+serve: FORCE	
 	@killall lti-grader || true
+	$(GO) build
 	@./lti-grader -secret ${GRADER_SECRET} -consumer ${GRADER_CONSUMER}
 
 # http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html

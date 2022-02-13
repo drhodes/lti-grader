@@ -27,3 +27,6 @@ export GRADER_SECRET= ...
 
 Because they are secrets, the file `env-secret.bash` is not included
 in this repository!
+ls
+
+

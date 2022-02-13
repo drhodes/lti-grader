@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>lti-grader response</title>
+    <style>
+      ${ctx["css_styles"]}
+    </style>
+    <script>
+      function waitCursor() { document.body.style.cursor = 'wait'; }
+      function unwaitCursor() { document.body.style.cursor = 'default'; }
+      function onCheckGrade() {
+          waitCursor();
+          location.reload();
+          unwaitCursor();
+      }
+    </script>
+
+  </head>
+
+  <body>
+    
+    <div id="lti-answers">
+      ${ctx["answers_html"]}
+    </div>
+
+    <br>
+    <hr>
+    <br>
+
+    <button class="button-8" role="button" onclick="onCheckGrade()"> Check Grade </button>
+
+  </body>
+</html>
